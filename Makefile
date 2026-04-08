@@ -1,4 +1,4 @@
-.PHONY: up down seed proto engine adapters ai studio all test
+.PHONY: up down seed seed-wait proto engine adapters ai studio all test
 
 up:
 	docker compose up -d
@@ -6,16 +6,30 @@ up:
 down:
 	docker compose down
 
-seed:
-	@echo "==> Seeding Postgres..."
-	docker compose exec postgres psql -U atlas -d atlas -f /seed/init.sql
-	@echo "==> Seeding ClickHouse..."
-	docker compose exec clickhouse clickhouse-client --query "$$(cat seed/clickhouse/init.sql)"
+seed-wait:
+	@echo "==> Waiting for services to be healthy..."
+	@until docker compose exec postgres pg_isready -U atlas -d atlas >/dev/null 2>&1; do \
+		echo "    Waiting for Postgres..."; sleep 3; done
+	@until docker compose exec clickhouse curl -sf http://localhost:8123/ping >/dev/null 2>&1; do \
+		echo "    Waiting for ClickHouse..."; sleep 3; done
+	@until docker compose exec elasticsearch curl -sf http://localhost:9200/_cluster/health >/dev/null 2>&1; do \
+		echo "    Waiting for Elasticsearch..."; sleep 3; done
+	@until docker compose exec weaviate curl -sf http://localhost:8080/v1/.well-known/ready >/dev/null 2>&1; do \
+		echo "    Waiting for Weaviate..."; sleep 3; done
+	@echo "==> All services healthy."
+
+seed: seed-wait
+	@echo "==> Seeding Postgres (handled by docker-entrypoint-initdb.d mount)..."
+	@echo "    Postgres init.sql runs automatically on first start."
+	@echo "==> Seeding ClickHouse (handled by docker-entrypoint-initdb.d mount)..."
+	@echo "    ClickHouse init.sql runs automatically on first start."
+	@echo "==> Installing seed script dependencies..."
+	pip install -q -r seed/requirements.txt
 	@echo "==> Seeding Elasticsearch..."
 	python seed/elasticsearch/seed.py
 	@echo "==> Seeding Weaviate..."
 	python seed/weaviate/seed.py
-	@echo "==> Done."
+	@echo "==> All seed data loaded."
 
 proto:
 	@echo "==> Generating protobuf code..."

@@ -85,9 +85,10 @@ services:
   # The adapters service queries this via the Weaviate adapter.
   # ---------------------------------------------------------------------------
   weaviate:
-    image: cr.weaviate.io/semitechnologies/weaviate:1.25.0
+    image: cr.weaviate.io/semitechnologies/weaviate:1.27.0
     ports:
       - "8080:8080"
+      - "50051:50051"
     environment:
       QUERY_DEFAULTS_LIMIT: 25
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"

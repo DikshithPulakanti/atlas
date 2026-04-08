@@ -1,0 +1,4 @@
+elasticsearch>=8.13,<9
+weaviate-client>=4.5
+requests>=2.31
+faker>=24.0
