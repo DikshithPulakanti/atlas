@@ -1,0 +1,1 @@
+"""Embedding operator — vector generation."""

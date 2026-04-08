@@ -1,0 +1,2 @@
+-- Atlas seed data for PostgreSQL
+-- TODO: Add seed tables and data

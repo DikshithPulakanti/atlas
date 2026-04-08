@@ -1,0 +1,22 @@
+name: AI Operators CI (Python)
+
+on:
+  push:
+    paths:
+      - "ai-operators/**"
+      - "proto/**"
+  pull_request:
+    paths:
+      - "ai-operators/**"
+      - "proto/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install uv && cd ai-operators && uv sync
+      - run: cd ai-operators && uv run pytest

@@ -1,0 +1,2 @@
+-- Atlas seed data for ClickHouse
+-- TODO: Add seed tables and data

@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+option go_package = "github.com/DikshithPulakanti/atlas/adapters/pkg/proto/atlas/v1";
+
+// QueryResult holds the rows and schema of a query result.
+message QueryResult {
+  repeated ColumnDef columns = 1;
+  repeated Row rows = 2;
+  uint64 total_rows = 3;
+}
+
+// ColumnDef describes a column in the result set.
+message ColumnDef {
+  string name = 1;
+  string data_type = 2;
+}
+
+// Row represents a single result row.
+message Row {
+  repeated Value values = 1;
+}
+
+// Value is a typed cell value.
+message Value {
+  oneof kind {
+    string string_value = 1;
+    int64 int_value = 2;
+    double float_value = 3;
+    bool bool_value = 4;
+    bytes bytes_value = 5;
+    string null_value = 6;
+  }
+}

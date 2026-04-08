@@ -1,0 +1,22 @@
+name: Adapters CI (Go)
+
+on:
+  push:
+    paths:
+      - "adapters/**"
+      - "proto/**"
+  pull_request:
+    paths:
+      - "adapters/**"
+      - "proto/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - run: cd adapters && go build ./...
+      - run: cd adapters && go test ./...

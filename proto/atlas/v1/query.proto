@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+option go_package = "github.com/DikshithPulakanti/atlas/adapters/pkg/proto/atlas/v1";
+
+import "atlas/v1/schema.proto";
+
+// QueryIR represents the intermediate representation of a parsed AtlasQL query.
+message QueryIR {
+  repeated SourceRef sources = 1;
+  repeated Projection projections = 2;
+  repeated JoinClause joins = 3;
+  optional FilterExpr filter = 4;
+  repeated AggregateExpr aggregates = 5;
+  repeated OrderByExpr order_by = 6;
+  optional uint64 limit = 7;
+}
+
+// SourceRef references a data source in the query.
+message SourceRef {
+  string source_name = 1;
+  SourceType source_type = 2;
+  string alias = 3;
+}
+
+// Projection represents a selected column or expression.
+message Projection {
+  string expression = 1;
+  string alias = 2;
+}
+
+// JoinClause describes a cross-source join.
+message JoinClause {
+  SourceRef left = 1;
+  SourceRef right = 2;
+  string condition = 3;
+  JoinType join_type = 4;
+}
+
+enum JoinType {
+  JOIN_TYPE_UNSPECIFIED = 0;
+  JOIN_TYPE_INNER = 1;
+  JOIN_TYPE_LEFT = 2;
+  JOIN_TYPE_RIGHT = 3;
+  JOIN_TYPE_FULL = 4;
+}
+
+// FilterExpr represents a WHERE clause filter.
+message FilterExpr {
+  string expression = 1;
+}
+
+// AggregateExpr represents a GROUP BY aggregate.
+message AggregateExpr {
+  string function = 1;
+  string column = 2;
+  string alias = 3;
+}
+
+// OrderByExpr represents an ORDER BY clause.
+message OrderByExpr {
+  string column = 1;
+  bool descending = 2;
+}

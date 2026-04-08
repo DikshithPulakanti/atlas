@@ -1,0 +1,23 @@
+name: Studio CI (Next.js)
+
+on:
+  push:
+    paths:
+      - "studio/**"
+  pull_request:
+    paths:
+      - "studio/**"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - run: cd studio && pnpm install --frozen-lockfile
+      - run: cd studio && pnpm build

@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+option go_package = "github.com/DikshithPulakanti/atlas/adapters/pkg/proto/atlas/v1";
+
+// SourceType enumerates the supported data sources.
+enum SourceType {
+  SOURCE_TYPE_UNSPECIFIED = 0;
+  SOURCE_TYPE_POSTGRES = 1;
+  SOURCE_TYPE_CLICKHOUSE = 2;
+  SOURCE_TYPE_ELASTICSEARCH = 3;
+  SOURCE_TYPE_WEAVIATE = 4;
+  SOURCE_TYPE_PARQUET = 5;
+}
+
+// ColumnSchema describes a single column/field in a source.
+message ColumnSchema {
+  string name = 1;
+  string data_type = 2;
+  bool nullable = 3;
+  bool is_primary_key = 4;
+}
+
+// TableSchema describes a table or collection in a source.
+message TableSchema {
+  string source_name = 1;
+  SourceType source_type = 2;
+  string table_name = 3;
+  repeated ColumnSchema columns = 4;
+}
+
+// DiscoverSchemaRequest asks for schema discovery on a source.
+message DiscoverSchemaRequest {
+  string source_name = 1;
+  SourceType source_type = 2;
+}
+
+// DiscoverSchemaResponse returns discovered schemas.
+message DiscoverSchemaResponse {
+  repeated TableSchema tables = 1;
+}
+
+// SchemaService provides schema discovery RPCs.
+service SchemaService {
+  rpc DiscoverSchema(DiscoverSchemaRequest) returns (DiscoverSchemaResponse);
+}

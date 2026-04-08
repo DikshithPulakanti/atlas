@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+option go_package = "github.com/DikshithPulakanti/atlas/adapters/pkg/proto/atlas/v1";
+
+import "atlas/v1/query.proto";
+import "atlas/v1/results.proto";
+
+// ExecuteQueryRequest sends an AtlasQL query for execution.
+message ExecuteQueryRequest {
+  string query = 1;
+  map<string, string> parameters = 2;
+}
+
+// ExecuteQueryResponse returns the query results.
+message ExecuteQueryResponse {
+  QueryResult result = 1;
+  QueryMetadata metadata = 2;
+}
+
+// QueryMetadata contains execution metadata.
+message QueryMetadata {
+  string query_id = 1;
+  uint64 execution_time_ms = 2;
+  repeated string sources_accessed = 3;
+  QueryIR plan = 4;
+}
+
+// ExecutionService provides query execution RPCs.
+service ExecutionService {
+  rpc ExecuteQuery(ExecuteQueryRequest) returns (ExecuteQueryResponse);
+  rpc ExecuteQueryStream(ExecuteQueryRequest) returns (stream ExecuteQueryResponse);
+}

@@ -1,0 +1,179 @@
+# =============================================================================
+# Atlas — Local Development Infrastructure
+# =============================================================================
+# Usage:
+#   make up     → docker compose up -d
+#   make down   → docker compose down
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — Primary OLTP store
+  # Holds relational data: users, orders, products, transactions.
+  # The adapters service queries this via the Postgres adapter.
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: atlas_dev
+      POSTGRES_DB: atlas
+    volumes:
+      - atlas-postgres-data:/var/lib/postgresql/data
+      - ./seed/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - atlas-network
+
+  # ---------------------------------------------------------------------------
+  # ClickHouse — Columnar analytics store
+  # Holds time-series and event data: logs, metrics, clickstream.
+  # The adapters service queries this via the ClickHouse adapter.
+  # ---------------------------------------------------------------------------
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # Native TCP protocol
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: ""
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - atlas-clickhouse-data:/var/lib/clickhouse
+      - ./seed/clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8123/ping || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - atlas-network
+
+  # ---------------------------------------------------------------------------
+  # Elasticsearch — Full-text search engine
+  # Holds documents and text-heavy data: support tickets, articles, logs.
+  # The adapters service queries this via the Elasticsearch adapter.
+  # ---------------------------------------------------------------------------
+  elasticsearch:
+    image: elasticsearch:8.13.0
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - atlas-elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - atlas-network
+
+  # ---------------------------------------------------------------------------
+  # Weaviate — Vector database
+  # Holds embeddings for semantic search, similarity, and RAG workflows.
+  # The adapters service queries this via the Weaviate adapter.
+  # ---------------------------------------------------------------------------
+  weaviate:
+    image: cr.weaviate.io/semitechnologies/weaviate:1.25.0
+    ports:
+      - "8080:8080"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+      CLUSTER_HOSTNAME: node1
+    volumes:
+      - atlas-weaviate-data:/var/lib/weaviate
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/v1/.well-known/ready || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - atlas-network
+
+  # ---------------------------------------------------------------------------
+  # Redis — Cache and session store
+  # Used by the engine for query result caching and by ai-operators for
+  # rate limiting and batching state.
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - atlas-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - atlas-network
+
+  # ---------------------------------------------------------------------------
+  # Kafka (KRaft) — Event streaming
+  # Used for async query result streaming, change-data-capture from sources,
+  # and inter-service communication between engine and ai-operators.
+  # Runs in KRaft mode (no ZooKeeper dependency).
+  # ---------------------------------------------------------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    ports:
+      - "9092:9092"
+    environment:
+      # KRaft mode settings (no ZooKeeper)
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      # Listener configuration
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      # Cluster settings
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      # Dev convenience
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 24
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - atlas-network
+
+# =============================================================================
+# Volumes — Named volumes for data persistence across restarts
+# =============================================================================
+volumes:
+  atlas-postgres-data:
+  atlas-clickhouse-data:
+  atlas-elasticsearch-data:
+  atlas-weaviate-data:
+  atlas-redis-data:
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  atlas-network:
+    driver: bridge

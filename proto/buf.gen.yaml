@@ -1,0 +1,25 @@
+version: v2
+plugins:
+  # Go
+  - remote: buf.build/protocolbuffers/go
+    out: ../adapters/pkg/proto
+    opt:
+      - paths=source_relative
+  - remote: buf.build/grpc/go
+    out: ../adapters/pkg/proto
+    opt:
+      - paths=source_relative
+
+  # Rust (prost / tonic)
+  - remote: buf.build/community/neoeinstein-prost
+    out: ../engine/src/proto
+    opt:
+      - compile_well_known_types
+  - remote: buf.build/community/neoeinstein-tonic
+    out: ../engine/src/proto
+
+  # Python (grpcio)
+  - remote: buf.build/protocolbuffers/python
+    out: ../ai-operators/src/proto
+  - remote: buf.build/grpc/python
+    out: ../ai-operators/src/proto
