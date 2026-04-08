@@ -4,44 +4,60 @@ package atlas.v1;
 
 option go_package = "github.com/DikshithPulakanti/atlas/adapters/pkg/proto/atlas/v1";
 
+// DataType enumerates the supported column/field types across all sources.
+enum DataType {
+  DATA_TYPE_UNSPECIFIED = 0;
+  DATA_TYPE_STRING = 1;
+  DATA_TYPE_INT64 = 2;
+  DATA_TYPE_FLOAT64 = 3;
+  DATA_TYPE_BOOL = 4;
+  DATA_TYPE_TIMESTAMP = 5;
+  DATA_TYPE_TEXT = 6;       // Unstructured text (full-text searchable)
+  DATA_TYPE_EMBEDDING = 7;  // Vector embedding
+  DATA_TYPE_JSON = 8;
+  DATA_TYPE_ARRAY = 9;
+}
+
 // SourceType enumerates the supported data sources.
 enum SourceType {
   SOURCE_TYPE_UNSPECIFIED = 0;
-  SOURCE_TYPE_POSTGRES = 1;
+  SOURCE_TYPE_POSTGRESQL = 1;
   SOURCE_TYPE_CLICKHOUSE = 2;
   SOURCE_TYPE_ELASTICSEARCH = 3;
   SOURCE_TYPE_WEAVIATE = 4;
-  SOURCE_TYPE_PARQUET = 5;
+  SOURCE_TYPE_S3_PARQUET = 5;
 }
 
-// ColumnSchema describes a single column/field in a source.
+// ColumnSchema describes a single column or field in a source table/collection.
 message ColumnSchema {
   string name = 1;
-  string data_type = 2;
+  DataType data_type = 2;
   bool nullable = 3;
-  bool is_primary_key = 4;
+  string description = 4;
+  string source_name = 5;
 }
 
-// TableSchema describes a table or collection in a source.
+// TableSchema describes a table, index, or collection in a source.
 message TableSchema {
+  string name = 1;
+  repeated ColumnSchema columns = 2;
+  string source_name = 3;
+  int64 row_count_estimate = 4;
+}
+
+// SourceSchema describes the full schema of a connected data source.
+message SourceSchema {
   string source_name = 1;
   SourceType source_type = 2;
-  string table_name = 3;
-  repeated ColumnSchema columns = 4;
+  repeated TableSchema tables = 3;
 }
 
-// DiscoverSchemaRequest asks for schema discovery on a source.
+// DiscoverSchemaRequest asks for schema discovery on a named source.
 message DiscoverSchemaRequest {
   string source_name = 1;
-  SourceType source_type = 2;
 }
 
-// DiscoverSchemaResponse returns discovered schemas.
+// DiscoverSchemaResponse returns the discovered schema.
 message DiscoverSchemaResponse {
-  repeated TableSchema tables = 1;
-}
-
-// SchemaService provides schema discovery RPCs.
-service SchemaService {
-  rpc DiscoverSchema(DiscoverSchemaRequest) returns (DiscoverSchemaResponse);
+  SourceSchema schema = 1;
 }

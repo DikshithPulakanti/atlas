@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package atlas.v1;
+
+option go_package = "github.com/DikshithPulakanti/atlas/adapters/pkg/proto/atlas/v1";
+
+import "atlas/v1/schema.proto";
+
+// =============================================================================
+// Shared columnar data types — used by both execution and results
+// =============================================================================
+
+// ExecuteScanResponse is a columnar batch of rows returned from a source.
+message ExecuteScanResponse {
+  repeated ColumnData columns = 1;
+  int32 row_count = 2;
+}
+
+// ColumnData holds the values for a single column in a RecordBatch.
+message ColumnData {
+  string name = 1;
+  DataType data_type = 2;
+
+  oneof values {
+    StringValues string_values = 10;
+    Int64Values int64_values = 11;
+    Float64Values float64_values = 12;
+    BoolValues bool_values = 13;
+  }
+
+  bytes null_bitmap = 20;  // Bit-packed nullability mask
+}
+
+message StringValues {
+  repeated string values = 1;
+}
+
+message Int64Values {
+  repeated int64 values = 1;
+}
+
+message Float64Values {
+  repeated double values = 1;
+}
+
+message BoolValues {
+  repeated bool values = 1;
+}
+
+// =============================================================================
+// Shared cost tracking types
+// =============================================================================
+
+// TokenUsage tracks LLM token consumption for an AI operator call.
+message TokenUsage {
+  int64 input_tokens = 1;
+  int64 output_tokens = 2;
+  float estimated_cost_usd = 3;
+}

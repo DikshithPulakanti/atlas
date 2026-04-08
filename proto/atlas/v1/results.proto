@@ -4,32 +4,28 @@ package atlas.v1;
 
 option go_package = "github.com/DikshithPulakanti/atlas/adapters/pkg/proto/atlas/v1";
 
-// QueryResult holds the rows and schema of a query result.
-message QueryResult {
-  repeated ColumnDef columns = 1;
-  repeated Row rows = 2;
-  uint64 total_rows = 3;
+import "atlas/v1/common.proto";
+
+// ExecuteQueryResponse is a streamed chunk of query results.
+message ExecuteQueryResponse {
+  repeated ColumnData columns = 1;
+  int32 row_count = 2;
+  bool is_last = 3;
+  QueryMetadata metadata = 4;  // Populated only on the last batch
 }
 
-// ColumnDef describes a column in the result set.
-message ColumnDef {
-  string name = 1;
-  string data_type = 2;
+// QueryMetadata carries execution statistics for the completed query.
+message QueryMetadata {
+  int64 total_rows = 1;
+  int64 execution_time_ms = 2;
+  repeated string sources_queried = 3;
+  repeated OperatorCost ai_operator_costs = 4;
 }
 
-// Row represents a single result row.
-message Row {
-  repeated Value values = 1;
-}
-
-// Value is a typed cell value.
-message Value {
-  oneof kind {
-    string string_value = 1;
-    int64 int_value = 2;
-    double float_value = 3;
-    bool bool_value = 4;
-    bytes bytes_value = 5;
-    string null_value = 6;
-  }
+// OperatorCost tracks the cost of a single AI operator invocation.
+message OperatorCost {
+  string operator_name = 1;
+  int64 invocations = 2;
+  TokenUsage token_usage = 3;
+  int64 latency_ms = 4;
 }

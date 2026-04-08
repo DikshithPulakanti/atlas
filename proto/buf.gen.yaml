@@ -1,6 +1,18 @@
 version: v2
 plugins:
-  # Go
+  # -------------------------------------------------------------------------
+  # Rust — prost (messages) + tonic (gRPC services)
+  # -------------------------------------------------------------------------
+  - remote: buf.build/community/neoeinstein-prost
+    out: ../engine/src/proto
+    opt:
+      - compile_well_known_types
+  - remote: buf.build/community/neoeinstein-tonic
+    out: ../engine/src/proto
+
+  # -------------------------------------------------------------------------
+  # Go — protoc-gen-go (messages) + protoc-gen-go-grpc (services)
+  # -------------------------------------------------------------------------
   - remote: buf.build/protocolbuffers/go
     out: ../adapters/pkg/proto
     opt:
@@ -10,15 +22,9 @@ plugins:
     opt:
       - paths=source_relative
 
-  # Rust (prost / tonic)
-  - remote: buf.build/community/neoeinstein-prost
-    out: ../engine/src/proto
-    opt:
-      - compile_well_known_types
-  - remote: buf.build/community/neoeinstein-tonic
-    out: ../engine/src/proto
-
-  # Python (grpcio)
+  # -------------------------------------------------------------------------
+  # Python — grpcio-tools (messages + services)
+  # -------------------------------------------------------------------------
   - remote: buf.build/protocolbuffers/python
     out: ../ai-operators/src/proto
   - remote: buf.build/grpc/python

@@ -4,31 +4,111 @@ package atlas.v1;
 
 option go_package = "github.com/DikshithPulakanti/atlas/adapters/pkg/proto/atlas/v1";
 
+import "google/protobuf/struct.proto";
+import "atlas/v1/schema.proto";
 import "atlas/v1/query.proto";
+import "atlas/v1/common.proto";
 import "atlas/v1/results.proto";
 
-// ExecuteQueryRequest sends an AtlasQL query for execution.
+// =============================================================================
+// AtlasEngineService — the main entry point for query execution
+// =============================================================================
+
+service AtlasEngineService {
+  // ExecuteQuery compiles and runs an AtlasQL query, streaming result batches.
+  rpc ExecuteQuery(ExecuteQueryRequest) returns (stream ExecuteQueryResponse);
+
+  // ExplainQuery returns the execution plan without running the query.
+  rpc ExplainQuery(ExplainQueryRequest) returns (ExplainQueryResponse);
+
+  // ValidateQuery checks an AtlasQL query for syntax and semantic errors.
+  rpc ValidateQuery(ValidateQueryRequest) returns (ValidateQueryResponse);
+}
+
 message ExecuteQueryRequest {
+  string query = 1;               // Raw AtlasQL query string
+  int32 timeout_seconds = 2;
+  int64 max_rows = 3;
+}
+
+message ExplainQueryRequest {
   string query = 1;
-  map<string, string> parameters = 2;
 }
 
-// ExecuteQueryResponse returns the query results.
-message ExecuteQueryResponse {
-  QueryResult result = 1;
-  QueryMetadata metadata = 2;
+message ExplainQueryResponse {
+  ExecutionPlan plan = 1;
+  float estimated_total_cost = 2;
+  repeated string warnings = 3;
 }
 
-// QueryMetadata contains execution metadata.
-message QueryMetadata {
-  string query_id = 1;
-  uint64 execution_time_ms = 2;
-  repeated string sources_accessed = 3;
-  QueryIR plan = 4;
+message ValidateQueryRequest {
+  string query = 1;
 }
 
-// ExecutionService provides query execution RPCs.
-service ExecutionService {
-  rpc ExecuteQuery(ExecuteQueryRequest) returns (ExecuteQueryResponse);
-  rpc ExecuteQueryStream(ExecuteQueryRequest) returns (stream ExecuteQueryResponse);
+message ValidateQueryResponse {
+  bool valid = 1;
+  repeated QueryError errors = 2;
+  repeated string warnings = 3;
+}
+
+message QueryError {
+  string message = 1;
+  int32 line = 2;
+  int32 column = 3;
+  QueryErrorSeverity severity = 4;
+}
+
+enum QueryErrorSeverity {
+  QUERY_ERROR_SEVERITY_UNSPECIFIED = 0;
+  QUERY_ERROR_SEVERITY_ERROR = 1;
+  QUERY_ERROR_SEVERITY_WARNING = 2;
+  QUERY_ERROR_SEVERITY_HINT = 3;
+}
+
+// =============================================================================
+// SourceAdapterService — executed by the Go adapters layer
+// =============================================================================
+
+service SourceAdapterService {
+  // ExecuteScan pushes a scan node down to a source and streams record batches.
+  rpc ExecuteScan(ExecuteScanRequest) returns (stream ExecuteScanResponse);
+
+  // DiscoverSchema introspects a source and returns its schema.
+  rpc DiscoverSchema(DiscoverSchemaRequest) returns (DiscoverSchemaResponse);
+}
+
+message ExecuteScanRequest {
+  ScanNode scan_node = 1;
+  int64 limit = 2;
+}
+
+// =============================================================================
+// AIOperatorService — executed by the Python ai-operators service
+// =============================================================================
+
+service AIOperatorService {
+  // ExecuteBatch runs an AI operator over a batch of inputs.
+  rpc ExecuteBatch(ExecuteBatchRequest) returns (ExecuteBatchResponse);
+}
+
+message ExecuteBatchRequest {
+  AIOperatorNode operator = 1;
+  repeated AIOperatorInput inputs = 2;
+  string query_id = 3;
+}
+
+message AIOperatorInput {
+  string id = 1;
+  map<string, string> values = 2;
+}
+
+message ExecuteBatchResponse {
+  repeated AIOperatorResult results = 1;
+  TokenUsage token_usage = 2;
+  int64 latency_ms = 3;
+}
+
+message AIOperatorResult {
+  string id = 1;
+  google.protobuf.Struct result = 2;
 }

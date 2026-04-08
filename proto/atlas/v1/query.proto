@@ -4,38 +4,88 @@ package atlas.v1;
 
 option go_package = "github.com/DikshithPulakanti/atlas/adapters/pkg/proto/atlas/v1";
 
-import "atlas/v1/schema.proto";
+// ---------------------------------------------------------------------------
+// Execution plan — a DAG of ExecutionNodes
+// ---------------------------------------------------------------------------
 
-// QueryIR represents the intermediate representation of a parsed AtlasQL query.
-message QueryIR {
-  repeated SourceRef sources = 1;
-  repeated Projection projections = 2;
-  repeated JoinClause joins = 3;
-  optional FilterExpr filter = 4;
-  repeated AggregateExpr aggregates = 5;
-  repeated OrderByExpr order_by = 6;
-  optional uint64 limit = 7;
+// ExecutionPlan is the top-level query plan: a DAG of execution nodes.
+message ExecutionPlan {
+  repeated ExecutionNode nodes = 1;
+  string root_node_id = 2;
 }
 
-// SourceRef references a data source in the query.
-message SourceRef {
+// ExecutionNode is a single node in the execution DAG.
+message ExecutionNode {
+  string id = 1;
+  IRNodeType node_type = 2;
+
+  oneof node {
+    ScanNode scan = 10;
+    FilterNode filter = 11;
+    ProjectNode project = 12;
+    JoinNode join = 13;
+    AggregateNode aggregate = 14;
+    SortNode sort = 15;
+    LimitNode limit = 16;
+    AIOperatorNode ai_operator = 17;
+    TimeseriesNode timeseries = 18;
+    LetBindingNode let_binding = 19;
+  }
+
+  repeated string input_node_ids = 3;
+  int64 estimated_rows = 4;
+  float estimated_cost = 5;
+}
+
+// IRNodeType enumerates the types of IR nodes.
+enum IRNodeType {
+  IR_NODE_TYPE_UNSPECIFIED = 0;
+  IR_NODE_TYPE_SCAN = 1;
+  IR_NODE_TYPE_FILTER = 2;
+  IR_NODE_TYPE_PROJECT = 3;
+  IR_NODE_TYPE_JOIN = 4;
+  IR_NODE_TYPE_AGGREGATE = 5;
+  IR_NODE_TYPE_SORT = 6;
+  IR_NODE_TYPE_LIMIT = 7;
+  IR_NODE_TYPE_AI_OPERATOR = 8;
+  IR_NODE_TYPE_TIMESERIES_OPERATOR = 9;
+  IR_NODE_TYPE_LET_BINDING = 10;
+}
+
+// ---------------------------------------------------------------------------
+// Leaf / relational nodes
+// ---------------------------------------------------------------------------
+
+// ScanNode reads rows from a source table/collection.
+message ScanNode {
   string source_name = 1;
-  SourceType source_type = 2;
-  string alias = 3;
+  string table_name = 2;
+  repeated string columns = 3;
+  repeated Expression pushed_predicates = 4;
 }
 
-// Projection represents a selected column or expression.
-message Projection {
-  string expression = 1;
+// FilterNode applies a predicate to its input.
+message FilterNode {
+  Expression predicate = 1;
+}
+
+// ProjectNode selects / transforms columns.
+message ProjectNode {
+  repeated ProjectColumn columns = 1;
+}
+
+// ProjectColumn is a single projected expression with an optional alias.
+message ProjectColumn {
+  Expression expression = 1;
   string alias = 2;
 }
 
-// JoinClause describes a cross-source join.
-message JoinClause {
-  SourceRef left = 1;
-  SourceRef right = 2;
-  string condition = 3;
-  JoinType join_type = 4;
+// JoinNode joins two inputs.
+message JoinNode {
+  JoinType join_type = 1;
+  string left_input = 2;
+  string right_input = 3;
+  Expression condition = 4;
 }
 
 enum JoinType {
@@ -43,23 +93,172 @@ enum JoinType {
   JOIN_TYPE_INNER = 1;
   JOIN_TYPE_LEFT = 2;
   JOIN_TYPE_RIGHT = 3;
-  JOIN_TYPE_FULL = 4;
+  JOIN_TYPE_CROSS_MATCH = 4;
 }
 
-// FilterExpr represents a WHERE clause filter.
-message FilterExpr {
-  string expression = 1;
+// AggregateNode groups and aggregates rows.
+message AggregateNode {
+  repeated Expression group_by = 1;
+  repeated AggregateFunction aggregations = 2;
 }
 
-// AggregateExpr represents a GROUP BY aggregate.
-message AggregateExpr {
-  string function = 1;
-  string column = 2;
+message AggregateFunction {
+  AggregateFunctionType function = 1;
+  Expression argument = 2;
   string alias = 3;
 }
 
-// OrderByExpr represents an ORDER BY clause.
-message OrderByExpr {
-  string column = 1;
+enum AggregateFunctionType {
+  AGGREGATE_FUNCTION_TYPE_UNSPECIFIED = 0;
+  AGGREGATE_FUNCTION_TYPE_COUNT = 1;
+  AGGREGATE_FUNCTION_TYPE_SUM = 2;
+  AGGREGATE_FUNCTION_TYPE_AVG = 3;
+  AGGREGATE_FUNCTION_TYPE_MIN = 4;
+  AGGREGATE_FUNCTION_TYPE_MAX = 5;
+  AGGREGATE_FUNCTION_TYPE_COLLECT = 6;
+}
+
+// SortNode orders rows by one or more keys.
+message SortNode {
+  repeated SortKey sort_keys = 1;
+}
+
+message SortKey {
+  Expression expression = 1;
   bool descending = 2;
+}
+
+// LimitNode caps the number of output rows.
+message LimitNode {
+  int64 count = 1;
+}
+
+// LetBindingNode binds a named intermediate result.
+message LetBindingNode {
+  string name = 1;
+  Expression value = 2;
+}
+
+// ---------------------------------------------------------------------------
+// AI / timeseries operator nodes
+// ---------------------------------------------------------------------------
+
+// AIOperatorNode invokes an AI operator on a batch of rows.
+message AIOperatorNode {
+  AIOperatorType operator = 1;
+  repeated Expression arguments = 2;
+  map<string, string> options = 3;
+  int32 batch_size = 4;
+}
+
+enum AIOperatorType {
+  AI_OPERATOR_TYPE_UNSPECIFIED = 0;
+  AI_OPERATOR_TYPE_SENTIMENT = 1;
+  AI_OPERATOR_TYPE_SUMMARIZE = 2;
+  AI_OPERATOR_TYPE_CLASSIFY = 3;
+  AI_OPERATOR_TYPE_SIMILARITY = 4;
+  AI_OPERATOR_TYPE_EXPLAIN = 5;
+  AI_OPERATOR_TYPE_EMBED = 6;
+  AI_OPERATOR_TYPE_ENTITY_MATCH = 7;
+  AI_OPERATOR_TYPE_ROOT_CAUSE = 8;
+  AI_OPERATOR_TYPE_SEVERITY_SCORE = 9;
+}
+
+// TimeseriesNode applies a time-series function.
+message TimeseriesNode {
+  TimeseriesFunctionType function = 1;
+  Expression series = 2;
+  string window = 3;
+  map<string, string> options = 4;
+}
+
+enum TimeseriesFunctionType {
+  TIMESERIES_FUNCTION_TYPE_UNSPECIFIED = 0;
+  TIMESERIES_FUNCTION_TYPE_SLOPE = 1;
+  TIMESERIES_FUNCTION_TYPE_ANOMALY = 2;
+  TIMESERIES_FUNCTION_TYPE_BASELINE = 3;
+  TIMESERIES_FUNCTION_TYPE_FORECAST = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Expressions
+// ---------------------------------------------------------------------------
+
+// Expression is the recursive expression tree used everywhere in the IR.
+message Expression {
+  oneof value {
+    Literal literal = 1;
+    ColumnRef column_ref = 2;
+    BinaryOp binary_op = 3;
+    UnaryOp unary_op = 4;
+    FunctionCall function_call = 5;
+    AIOperatorNode ai_operator = 6;
+    FieldAccess field_access = 7;
+  }
+}
+
+// Literal is a constant value.
+message Literal {
+  oneof value {
+    string string_val = 1;
+    int64 int64_val = 2;
+    double float64_val = 3;
+    bool bool_val = 4;
+    bool null_val = 5;  // true indicates NULL
+  }
+}
+
+// ColumnRef references a column in a table.
+message ColumnRef {
+  string table = 1;
+  string column = 2;
+}
+
+// BinaryOp applies a binary operator to two expressions.
+message BinaryOp {
+  Expression left = 1;
+  Expression right = 2;
+  BinaryOpType op = 3;
+}
+
+enum BinaryOpType {
+  BINARY_OP_TYPE_UNSPECIFIED = 0;
+  BINARY_OP_TYPE_EQ = 1;
+  BINARY_OP_TYPE_NEQ = 2;
+  BINARY_OP_TYPE_LT = 3;
+  BINARY_OP_TYPE_GT = 4;
+  BINARY_OP_TYPE_LTE = 5;
+  BINARY_OP_TYPE_GTE = 6;
+  BINARY_OP_TYPE_AND = 7;
+  BINARY_OP_TYPE_OR = 8;
+  BINARY_OP_TYPE_ADD = 9;
+  BINARY_OP_TYPE_SUB = 10;
+  BINARY_OP_TYPE_MUL = 11;
+  BINARY_OP_TYPE_DIV = 12;
+}
+
+// UnaryOp applies a unary operator.
+message UnaryOp {
+  Expression operand = 1;
+  UnaryOpType op = 2;
+}
+
+enum UnaryOpType {
+  UNARY_OP_TYPE_UNSPECIFIED = 0;
+  UNARY_OP_TYPE_NOT = 1;
+  UNARY_OP_TYPE_NEG = 2;
+  UNARY_OP_TYPE_IS_NULL = 3;
+  UNARY_OP_TYPE_IS_NOT_NULL = 4;
+}
+
+// FunctionCall invokes a built-in or UDF function.
+message FunctionCall {
+  string name = 1;
+  repeated Expression arguments = 2;
+}
+
+// FieldAccess accesses a field on a struct/JSON object.
+message FieldAccess {
+  Expression object = 1;
+  string field = 2;
 }
